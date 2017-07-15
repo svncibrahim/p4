@@ -88,9 +88,6 @@
 #include <mach/regs-tmu.h>
 #endif
 
-#ifdef CONFIG_EXYNOS_C2C
-#include <mach/c2c.h>
-#endif
 #if defined(CONFIG_VIDEO_SAMSUNG_S5P_MFC) || defined(CONFIG_VIDEO_MFC5X)
 #include <plat/s5p-mfc.h>
 #endif
@@ -1153,22 +1150,6 @@ static struct fimg2d_platdata fimg2d_data __initdata = {
 };
 #endif
 
-#ifdef CONFIG_EXYNOS_C2C
-struct exynos_c2c_platdata smdk4212_c2c_pdata = {
-	.setup_gpio	= NULL,
-	.shdmem_addr	= C2C_SHAREDMEM_BASE,
-	.shdmem_size	= C2C_MEMSIZE_64,
-	.ap_sscm_addr	= NULL,
-	.cp_sscm_addr	= NULL,
-	.rx_width	= C2C_BUSWIDTH_16,
-	.tx_width	= C2C_BUSWIDTH_16,
-	.clk_opp100	= 400,
-	.clk_opp50	= 266,
-	.clk_opp25	= 0,
-	.default_opp_mode	= C2C_OPP50,
-	.get_c2c_state	= NULL,
-};
-#endif
 /* BUSFREQ to control memory/bus */
 static struct device_domain busfreq;
 
@@ -1511,9 +1492,6 @@ static struct platform_device *midas_devices[] __initdata = {
 #ifndef CONFIG_SND_SOC_SAMSUNG_USE_DMA_WRAPPER
 	&samsung_asoc_idma,
 #endif
-#ifdef CONFIG_EXYNOS_C2C
-	&exynos_device_c2c,
-#endif
 #if defined(CONFIG_S3C64XX_DEV_SPI)
 #if defined(CONFIG_VIDEO_S5C73M3_SPI)
 	&exynos_device_spi1,
@@ -1752,9 +1730,6 @@ static void __init exynos4_reserve_mem(void)
 #endif
 
 	static const char map[] __initconst =
-#ifdef CONFIG_EXYNOS_C2C
-		"samsung-c2c=c2c_shdmem;"
-#endif
 		"s3cfb.0=fimd;exynos4-fb.0=fimd;samsung-pd.1=fimd;"
 		"s3c-fimc.0=fimc0;s3c-fimc.1=fimc1;s3c-fimc.2=fimc2;s3c-fimc.3=fimc3;"
 		"exynos4210-fimc.0=fimc0;exynos4210-fimc.1=fimc1;exynos4210-fimc.2=fimc2;exynos4210-fimc.3=fimc3;"
@@ -2103,9 +2078,6 @@ static void __init midas_machine_init(void)
 #ifdef CONFIG_VIDEO_FIMG2D
 	s5p_fimg2d_set_platdata(&fimg2d_data);
 #endif
-#ifdef CONFIG_EXYNOS_C2C
-	exynos_c2c_set_platdata(&smdk4212_c2c_pdata);
-#endif
 
 	brcm_wlan_init();
 
@@ -2213,24 +2185,6 @@ static void __init midas_machine_init(void)
 
 }
 
-#ifdef CONFIG_EXYNOS_C2C
-static void __init exynos_c2c_reserve(void)
-{
-	static struct cma_region region = {
-			.name = "c2c_shdmem",
-			.size = 64 * SZ_1M,
-			{ .alignment	= 64 * SZ_1M },
-			.start = C2C_SHAREDMEM_BASE
-	};
-
-	BUG_ON(cma_early_region_register(&region));
-	BUG_ON(cma_early_region_reserve(&region));
-
-	pr_info("%s %10s %8x %8x\n", __func__,
-		region.name, region.start, region.size);
-}
-#endif
-
 static void __init exynos_init_reserve(void)
 {
 	sec_debug_magic_init();
@@ -2242,9 +2196,6 @@ MACHINE_START(SMDK4412, "SMDK4x12")
 	.map_io		= midas_map_io,
 	.init_machine	= midas_machine_init,
 	.timer		= &exynos4_timer,
-#ifdef CONFIG_EXYNOS_C2C
-	.reserve	= &exynos_c2c_reserve,
-#endif
 	.init_early	= &exynos_init_reserve,
 MACHINE_END
 
@@ -2254,8 +2205,5 @@ MACHINE_START(SMDK4212, "SMDK4x12")
 	.map_io		= midas_map_io,
 	.init_machine	= midas_machine_init,
 	.timer		= &exynos4_timer,
-#ifdef CONFIG_EXYNOS_C2C
-	.reserve	= &exynos_c2c_reserve,
-#endif
 	.init_early	= &exynos_init_reserve,
 MACHINE_END
