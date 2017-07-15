@@ -39,18 +39,12 @@
 #ifdef CONFIG_SMB347_CHARGER
 #include <linux/power/smb347_charger.h>
 #endif
-#ifdef CONFIG_BATTERY_SEC_PX
-#include <linux/power/sec_battery_px.h>
-#endif
 
 #ifdef CONFIG_BT_BCM4334
 #include <mach/board-bluetooth-bcm.h>
 #endif
 
 #include <linux/power_supply.h>
-#ifdef CONFIG_STMPE811_ADC
-#include <linux/stmpe811-adc.h>
-#endif
 #include <linux/v4l2-mediabus.h>
 #include <linux/memblock.h>
 #include <linux/delay.h>
@@ -942,42 +936,6 @@ static struct platform_device s3c_device_i2c18 = {
    to camera driver from midas-camera.c instead. */
 #endif
 
-#if defined(CONFIG_STMPE811_ADC) || defined(CONFIG_FM_SI4709_MODULE) \
-	|| defined(CONFIG_FM_SI4705_MODULE)
-static struct i2c_gpio_platform_data gpio_i2c_data19 = {
-	.sda_pin = GPIO_ADC_SDA,
-	.scl_pin = GPIO_ADC_SCL,
-};
-
-struct platform_device s3c_device_i2c19 = {
-	.name = "i2c-gpio",
-	.id = 19,
-	.dev.platform_data = &gpio_i2c_data19,
-};
-
-
-/* I2C19 */
-static struct i2c_board_info i2c_devs19_emul[] __initdata = {
-#if defined(CONFIG_STMPE811_ADC)
-	{
-		I2C_BOARD_INFO("stmpe811-adc", (0x82 >> 1)),
-		.platform_data	= &stmpe811_pdata,
-	},
-#endif
-#ifdef CONFIG_FM_SI4705_MODULE
-	{
-		I2C_BOARD_INFO("Si4709", (0x22 >> 1)),
-	},
-#endif
-#ifdef CONFIG_FM_SI4709_MODULE
-	{
-		I2C_BOARD_INFO("Si4709", (0x20 >> 1)),
-	},
-#endif
-
-};
-#endif
-
 /* I2C21 */
 #ifdef CONFIG_LEDS_AN30259A
 static struct i2c_gpio_platform_data gpio_i2c_data21 = {
@@ -1089,153 +1047,6 @@ static int __init setup_ram_console_mem(char *str)
 
 __setup("ram_console=", setup_ram_console_mem);
 #endif
-
-#ifdef CONFIG_BATTERY_SEC_PX
-void sec_bat_gpio_init(void)
-{
-
-	s3c_gpio_cfgpin(GPIO_TA_nCONNECTED, S3C_GPIO_INPUT);
-	s3c_gpio_setpull(GPIO_TA_nCONNECTED, S3C_GPIO_PULL_NONE);
-
-	s3c_gpio_cfgpin(GPIO_TA_nCHG, S3C_GPIO_INPUT);
-	s3c_gpio_setpull(GPIO_TA_nCHG, S3C_GPIO_PULL_UP);
-
-	s3c_gpio_cfgpin(GPIO_TA_EN, S3C_GPIO_OUTPUT);
-	s3c_gpio_setpull(GPIO_TA_EN, S3C_GPIO_PULL_NONE);
-	gpio_set_value(GPIO_TA_EN, 0);
-
-	gpio_request(GPIO_TA_nCHG, "TA_nCHG");
-	s5p_register_gpio_interrupt(GPIO_TA_nCHG);
-
-	pr_info("BAT : Battery GPIO initialized.\n");
-}
-
-static void  sec_charger_cb(int set_cable_type)
-{
-	struct usb_gadget *gadget = platform_get_drvdata(&s3c_device_usbgadget);
-	bool cable_state_to_tsp;
-	bool cable_state_to_usb;
-	enum usb_path_t usb_path;
-
-	switch (set_cable_type) {
-	case CHARGER_USB:
-		cable_state_to_tsp = true;
-		cable_state_to_usb = true;
-		is_cable_attached = true;
-		is_usb_lpm_enter = false;
-		break;
-	case CHARGER_AC:
-	case CHARGER_DOCK:
-	case CHARGER_MISC:
-		cable_state_to_tsp = true;
-		cable_state_to_usb = false;
-		is_cable_attached = true;
-		is_usb_lpm_enter = true;
-
-		usb_path = usb_switch_get_path();
-		if (usb_path != USB_PATH_AP) {
-			usb_switch_lock();
-			usb_switch_set_path(USB_PATH_TA);
-			usb_switch_unlock();
-		} else {
-			pr_info("%s: charger is detected and ap path\n",
-								__func__);
-		}
-		break;
-	case CHARGER_BATTERY:
-	case CHARGER_DISCHARGE:
-	default:
-		cable_state_to_tsp = false;
-		cable_state_to_usb = false;
-		is_cable_attached = false;
-		is_usb_lpm_enter = true;
-		usb_switch_lock();
-		usb_switch_clr_path(USB_PATH_TA);
-		usb_switch_unlock();
-		break;
-	}
-	pr_info("%s:cable_type=%d,tsp(%d),usb(%d),attached(%d),usblpm(%d)\n",
-		__func__, set_cable_type, cable_state_to_tsp,
-		cable_state_to_usb, is_cable_attached, is_usb_lpm_enter);
-
-#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_S7301)
-	synaptics_ts_charger_infom(is_cable_attached);
-#endif
-
-#if defined(CONFIG_TOUCHSCREEN_ATMEL_MXT1664S)
-	ts_charger_infom(is_cable_attached);
-#endif
-
-/* Send charger state to px-switch. px-switch needs cable type what USB or not */
-	set_usb_connection_state(!is_usb_lpm_enter);
-
-#ifdef CONFIG_TARGET_LOCALE_KOR
-	if (px_switch_get_usb_lock_state()) {
-		pr_info("%s: usb locked by mdm\n", __func__);
-		return;
-	}
-#endif
-
-/* Send charger state to USB. USB needs cable type what USB data or not */
-	if (gadget) {
-		if (cable_state_to_usb)
-			usb_gadget_vbus_connect(gadget);
-		else
-			usb_gadget_vbus_disconnect(gadget);
-	}
-
-	pr_info("%s\n", __func__);
-}
-
-static struct sec_battery_platform_data sec_battery_platform = {
-	.charger = {
-		.enable_line = GPIO_TA_EN,
-		.connect_line = GPIO_TA_nCONNECTED,
-		.fullcharge_line = GPIO_TA_nCHG,
-		.accessory_line = GPIO_ACCESSORY_INT,
-	},
-#if defined(CONFIG_SMB347_CHARGER)
-	.set_charging_state = sec_bat_set_charging_state,
-	.get_charging_state = sec_bat_get_charging_state,
-	.set_charging_current = sec_bat_set_charging_current,
-	.get_charging_current = sec_bat_get_charging_current,
-	.get_charger_is_full = sec_bat_get_charger_is_full,
-#endif
-	.init_charger_gpio = sec_bat_gpio_init,
-	.inform_charger_connection = sec_charger_cb,
-
-#if defined(CONFIG_TARGET_LOCALE_USA)
-	.temp_high_threshold = 50000,	/* 50c */
-	.temp_high_recovery = 42000,	/* 42c */
-	.temp_low_recovery = 0,			/* 0c */
-	.temp_low_threshold = -5000,	/* -5c */
-#elif defined(CONFIG_TARGET_LOCALE_KOR)
-	.temp_high_threshold = 61400,	/* 65c */
-	.temp_high_recovery = 43500,	/* 42c */
-	.temp_low_recovery = 0,			/* 0c */
-	.temp_low_threshold = -5000,	/* -5c */
-#else
-	.temp_high_threshold = 50000,	/* 50c */
-	.temp_high_recovery = 42000,	/* 42c */
-	.temp_low_recovery = 0,			/* 0c */
-	.temp_low_threshold = -5000,	/* -5c */
-#endif
-	.recharge_voltage = 4150,	/*4.15V */
-
-	.charge_duration = 10*60*60,	/* 10 hour */
-	.recharge_duration = 1.5*60*60,	/* 1.5 hour */
-	.check_lp_charging_boot = check_bootmode,
-	.check_jig_status = check_jig_on
-};
-
-static struct platform_device sec_battery_device = {
-	.name = "sec-battery",
-	.id = -1,
-	.dev = {
-		.platform_data = &sec_battery_platform,
-	},
-};
-#endif /* CONFIG_BATTERY_SEC_PX */
 
 #ifdef CONFIG_USB_HOST_NOTIFY
 static void px_usb_otg_power(int active);
@@ -1721,10 +1532,6 @@ static struct platform_device *midas_devices[] __initdata = {
 	&s3c_device_timer[1],
 	&s3c_device_timer[2],
 	&s3c_device_timer[3],
-#endif
-
-#ifdef CONFIG_BATTERY_SEC_PX
-	&sec_battery_device,
 #endif
 
 #ifdef CONFIG_SND_SOC_WM8994
@@ -2400,12 +2207,6 @@ static void __init midas_machine_init(void)
 				ARRAY_SIZE(i2c_devs17_emul));
 #endif
 
-#if defined(CONFIG_STMPE811_ADC) || defined(CONFIG_FM_SI4709_MODULE) \
-	|| defined(CONFIG_FM_SI4705_MODULE)
-	i2c_register_board_info(19, i2c_devs19_emul,
-				ARRAY_SIZE(i2c_devs19_emul));
-#endif
-
 #ifdef CONFIG_LEDS_AN30259A
 	i2c_register_board_info(21, i2c_devs21_emul,
 				ARRAY_SIZE(i2c_devs21_emul));
@@ -2520,10 +2321,6 @@ static void __init midas_machine_init(void)
 
 #ifdef CONFIG_S3C_ADC
 	platform_device_register(&s3c_device_adc);
-#endif
-#if defined(CONFIG_STMPE811_ADC) || defined(CONFIG_FM_SI4709_MODULE) \
-	|| defined(CONFIG_FM_SI4705_MODULE)
-	platform_device_register(&s3c_device_i2c19);
 #endif
 #ifdef CONFIG_SEC_THERMISTOR
 	platform_device_register(&sec_device_thermistor);
