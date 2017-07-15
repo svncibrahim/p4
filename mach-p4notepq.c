@@ -94,13 +94,6 @@
 
 #include <plat/fb-s5p.h>
 
-#ifdef CONFIG_FB_S5P_EXTDSP
-struct s3cfb_extdsp_lcd {
-	int	width;
-	int	height;
-	int	bpp;
-};
-#endif
 #include <mach/dev-sysmmu.h>
 
 #ifdef CONFIG_VIDEO_JPEG_V2X
@@ -1435,9 +1428,6 @@ static struct platform_device *midas_devices[] __initdata = {
 	&s5p_device_cec,
 	&s5p_device_hpd,
 #endif
-#ifdef CONFIG_FB_S5P_EXTDSP
-	&s3c_device_extdsp,
-#endif
 #ifdef CONFIG_VIDEO_FIMC
 	&s3c_device_fimc0,
 	&s3c_device_fimc1,
@@ -1849,45 +1839,6 @@ static void __init exynos_sysmmu_init(void)
 #endif
 }
 
-#ifdef CONFIG_FB_S5P_EXTDSP
-struct platform_device s3c_device_extdsp = {
-	.name		= "s3cfb_extdsp",
-	.id		= 0,
-};
-
-static struct s3cfb_extdsp_lcd dummy_buffer = {
-	.width = 1920,
-	.height = 1080,
-	.bpp = 16,
-};
-
-static struct s3c_platform_fb default_extdsp_data __initdata = {
-	.hw_ver		= 0x70,
-	.nr_wins	= 1,
-	.default_win	= 0,
-	.swap		= FB_SWAP_WORD | FB_SWAP_HWORD,
-	.lcd		= &dummy_buffer
-};
-
-void __init s3cfb_extdsp_set_platdata(struct s3c_platform_fb *pd)
-{
-	struct s3c_platform_fb *npd;
-	int i;
-
-	if (!pd)
-		pd = &default_extdsp_data;
-
-	npd = kmemdup(pd, sizeof(struct s3c_platform_fb), GFP_KERNEL);
-	if (!npd)
-		printk(KERN_ERR "%s: no memory for platform data\n", __func__);
-	else {
-		for (i = 0; i < npd->nr_wins; i++)
-			npd->nr_buffers[i] = 1;
-		s3c_device_extdsp.dev.platform_data = npd;
-	}
-}
-#endif
-
 static inline int need_i2c5(void)
 {
 	return 1; /* orig: system_rev != 3; */
@@ -2038,10 +1989,6 @@ static void __init midas_machine_init(void)
 #endif
 
 	midas_camera_init();
-
-#ifdef CONFIG_FB_S5P_EXTDSP
-	s3cfb_extdsp_set_platdata(&default_extdsp_data);
-#endif
 
 #if defined(CONFIG_VIDEO_TVOUT)
 	s5p_hdmi_hpd_set_platdata(&hdmi_hpd_data);
