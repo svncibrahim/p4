@@ -164,10 +164,6 @@ struct s3cfb_extdsp_lcd {
 
 #include "board-mobile.h"
 
-#ifdef CONFIG_IR_REMOCON_MC96
-#include <linux/ir_remote_con_mc96.h>
-#endif
-
 extern int s6c1372_panel_gpio_init(void);
 
 /* cable state */
@@ -1006,86 +1002,6 @@ static struct i2c_board_info i2c_devs21_emul[] __initdata = {
 };
 
 
-/* I2C22 */
-#ifdef CONFIG_IR_REMOCON_MC96
-static void irda_wake_en(bool onoff)
-{
-	gpio_direction_output(GPIO_IRDA_WAKE, onoff);
-	printk(KERN_ERR "%s: irda_wake_en : %d\n", __func__, onoff);
-}
-
-static void irda_device_init(void)
-{
-	int ret;
-
-	printk(KERN_ERR "%s called!\n", __func__);
-
-	ret = gpio_request(GPIO_IRDA_WAKE, "irda_wake");
-	if (ret) {
-		printk(KERN_ERR "%s: gpio_request fail[%d], ret = %d\n",
-				__func__, GPIO_IRDA_WAKE, ret);
-		return;
-	}
-	gpio_direction_output(GPIO_IRDA_WAKE, 0);
-
-	s3c_gpio_cfgpin(GPIO_IRDA_IRQ, S3C_GPIO_INPUT);
-	s3c_gpio_setpull(GPIO_IRDA_IRQ, S3C_GPIO_PULL_UP);
-	gpio_direction_input(GPIO_IRDA_IRQ);
-
-	return;
-}
-
-static int vled_ic_onoff;
-
-static void irda_vdd_onoff(bool onoff)
-{
-	int ret = 0;
-	static struct regulator *vled_ic;
-
-	if (onoff) {
-		vled_ic = regulator_get(NULL, "vled_ic_1.9v");
-		if (IS_ERR(vled_ic)) {
-			pr_err("could not get regulator vled_ic_1.9v\n");
-			return;
-		}
-		regulator_enable(vled_ic);
-		vled_ic_onoff = 1;
-	} else if (vled_ic_onoff == 1) {
-		regulator_force_disable(vled_ic);
-		regulator_put(vled_ic);
-		vled_ic_onoff = 0;
-	}
-}
-
-static struct i2c_gpio_platform_data gpio_i2c_data22 = {
-	.sda_pin = GPIO_IRDA_SDA,
-	.scl_pin = GPIO_IRDA_SCL,
-	.udelay = 2,
-	.sda_is_open_drain = 0,
-	.scl_is_open_drain = 0,
-	.scl_is_output_only = 0,
-};
-
-struct platform_device s3c_device_i2c22 = {
-	.name = "i2c-gpio",
-	.id = 22,
-	.dev.platform_data = &gpio_i2c_data22,
-};
-
-static struct mc96_platform_data mc96_pdata = {
-	.ir_remote_init = irda_device_init,
-	.ir_wake_en = irda_wake_en,
-	.ir_vdd_onoff = irda_vdd_onoff,
-};
-
-static struct i2c_board_info i2c_devs22_emul[] __initdata = {
-	{
-		I2C_BOARD_INFO("mc96", (0XA0 >> 1)),
-		.platform_data = &mc96_pdata,
-	},
-};
-#endif
-
 #ifdef CONFIG_I2C_GPIO
 #ifdef CONFIG_MOTOR_DRV_ISA1200
 static void isa1200_init(void)
@@ -1693,26 +1609,6 @@ static struct platform_device s3c_device_i2c11 = {
 };
 #endif
 
-/* IR_LED */
-#ifdef CONFIG_IR_REMOCON_GPIO
-
-static struct platform_device ir_remote_device = {
-	.name = "ir_rc",
-	.id = 0,
-	.dev = {
-	},
-};
-
-static void ir_rc_init_hw(void)
-{
-	s3c_gpio_cfgpin(GPIO_IRDA_CONTROL, S3C_GPIO_OUTPUT);
-	s3c_gpio_setpull(GPIO_IRDA_CONTROL, S3C_GPIO_PULL_NONE);
-	gpio_set_value(GPIO_IRDA_CONTROL, 0);
-}
-
-#endif
-/* IR_LED */
-
 #ifdef CONFIG_SEC_WATCHDOG_RESET
 static struct platform_device watchdog_reset_device = {
 	.name = "watchdog-reset",
@@ -1882,10 +1778,6 @@ static struct platform_device *midas_devices[] __initdata = {
 	&s3c_device_i2c21,
 #endif
 
-#ifdef CONFIG_IR_REMOCON_MC96
-	&s3c_device_i2c22,
-#endif
-
 #if defined CONFIG_USB_EHCI_S5P && !defined CONFIG_LINK_DEVICE_HSIC
 	&s5p_device_ehci,
 #endif
@@ -2038,12 +1930,7 @@ static struct platform_device *midas_devices[] __initdata = {
 	&sec_keyboard,
 #endif
 #endif
-#if defined(CONFIG_IR_REMOCON_GPIO)
-/* IR_LED */
-	&ir_remote_device,
-/* IR_LED */
-#endif
-
+    
 #ifdef CONFIG_CORESIGHT_ETM
 	&coresight_etb_device,
 	&coresight_tpiu_device,
@@ -2524,11 +2411,6 @@ static void __init midas_machine_init(void)
 				ARRAY_SIZE(i2c_devs21_emul));
 #endif
 
-#ifdef CONFIG_IR_REMOCON_MC96
-	i2c_register_board_info(22, i2c_devs22_emul,
-				ARRAY_SIZE(i2c_devs22_emul));
-#endif
-
 #if defined(GPIO_OLED_DET)
 	gpio_request(GPIO_OLED_DET, "OLED_DET");
 	s5p_register_gpio_interrupt(GPIO_OLED_DET);
@@ -2769,11 +2651,6 @@ static void __init midas_machine_init(void)
 	__raw_writel((__raw_readl(EXYNOS4_CLKDIV_FSYS1) & 0xfff0fff0)
 		     | 0x80008, EXYNOS4_CLKDIV_FSYS1);
 
-#if defined(CONFIG_IR_REMOCON_GPIO)
-/* IR_LED */
-	ir_rc_init_hw();
-/* IR_LED */
-#endif
 }
 
 #ifdef CONFIG_EXYNOS_C2C
