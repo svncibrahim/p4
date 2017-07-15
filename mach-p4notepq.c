@@ -843,76 +843,6 @@ static struct platform_device watchdog_reset_device = {
 };
 #endif
 
-#ifdef CONFIG_CORESIGHT_ETM
-
-#define CORESIGHT_PHYS_BASE		0x10880000
-#define CORESIGHT_ETB_PHYS_BASE		(CORESIGHT_PHYS_BASE + 0x1000)
-#define CORESIGHT_TPIU_PHYS_BASE	(CORESIGHT_PHYS_BASE + 0x3000)
-#define CORESIGHT_FUNNEL_PHYS_BASE	(CORESIGHT_PHYS_BASE + 0x4000)
-#define CORESIGHT_ETM_PHYS_BASE		(CORESIGHT_PHYS_BASE + 0x1C000)
-
-static struct resource coresight_etb_resources[] = {
-	{
-		.start = CORESIGHT_ETB_PHYS_BASE,
-		.end   = CORESIGHT_ETB_PHYS_BASE + SZ_4K - 1,
-		.flags = IORESOURCE_MEM,
-	},
-};
-
-struct platform_device coresight_etb_device = {
-	.name          = "coresight_etb",
-	.id            = -1,
-	.num_resources = ARRAY_SIZE(coresight_etb_resources),
-	.resource      = coresight_etb_resources,
-};
-
-static struct resource coresight_tpiu_resources[] = {
-	{
-		.start = CORESIGHT_TPIU_PHYS_BASE,
-		.end   = CORESIGHT_TPIU_PHYS_BASE + SZ_4K - 1,
-		.flags = IORESOURCE_MEM,
-	},
-};
-
-struct platform_device coresight_tpiu_device = {
-	.name          = "coresight_tpiu",
-	.id            = -1,
-	.num_resources = ARRAY_SIZE(coresight_tpiu_resources),
-	.resource      = coresight_tpiu_resources,
-};
-
-static struct resource coresight_funnel_resources[] = {
-	{
-		.start = CORESIGHT_FUNNEL_PHYS_BASE,
-		.end   = CORESIGHT_FUNNEL_PHYS_BASE + SZ_4K - 1,
-		.flags = IORESOURCE_MEM,
-	},
-};
-
-struct platform_device coresight_funnel_device = {
-	.name          = "coresight_funnel",
-	.id            = -1,
-	.num_resources = ARRAY_SIZE(coresight_funnel_resources),
-	.resource      = coresight_funnel_resources,
-};
-
-static struct resource coresight_etm_resources[] = {
-	{
-		.start = CORESIGHT_ETM_PHYS_BASE,
-		.end   = CORESIGHT_ETM_PHYS_BASE + (SZ_4K * 4) - 1,
-		.flags = IORESOURCE_MEM,
-	},
-};
-
-struct platform_device coresight_etm_device = {
-	.name          = "coresight_etm",
-	.id            = -1,
-	.num_resources = ARRAY_SIZE(coresight_etm_resources),
-	.resource      = coresight_etm_resources,
-};
-
-#endif
-
 static struct platform_device *midas_devices[] __initdata = {
 #ifdef CONFIG_SEC_WATCHDOG_RESET
 	&watchdog_reset_device,
@@ -1122,13 +1052,6 @@ static struct platform_device *midas_devices[] __initdata = {
 	&exynos4_busfreq,
 #ifdef CONFIG_EXYNOS4_SETUP_THERMAL
 	&s5p_device_tmu,
-#endif
-    
-#ifdef CONFIG_CORESIGHT_ETM
-	&coresight_etb_device,
-	&coresight_tpiu_device,
-	&coresight_funnel_device,
-	&coresight_etm_device,
 #endif
 };
 
