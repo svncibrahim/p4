@@ -335,19 +335,6 @@ static void __init smdk4212_usbgadget_init(void)
 	}
 
 	s5p_usbgadget_set_platdata(pdata);
-
-#if defined(CONFIG_MACH_C1_KOR_SKT) || defined(CONFIG_MACH_C1_KOR_KT) || \
-	defined(CONFIG_MACH_C1_KOR_LGT)
-	pdata = s3c_device_usbgadget.dev.platform_data;
-	if (pdata) {
-		/* Squelch Threshold Tune [13:11] (111 : -20%) */
-		pdata->phy_tune_mask |= (0x7 << 11);
-		pdata->phy_tune |= (0x7 << 11);
-		printk(KERN_DEBUG "usb: %s tune_mask=0x%x, tune=0x%x\n",
-			__func__, pdata->phy_tune_mask, pdata->phy_tune);
-	}
-#endif
-
 }
 #endif
 
