@@ -102,16 +102,12 @@
 
 #include <plat/fimg2d.h>
 #include <plat/s5p-sysmmu.h>
-
+// // 
 #include <mach/sec_debug.h>
 
 #include <mach/p4-input.h>
 
 #include <mach/midas-power.h>
-#ifdef CONFIG_SEC_THERMISTOR
-#include <mach/sec_thermistor.h>
-#endif
-#include <mach/midas-thermistor.h>
 #include <mach/midas-tsp.h>
 #include <mach/regs-clock.h>
 
@@ -126,10 +122,6 @@
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <mach/usb_switch.h>
-#endif
-
-#ifdef CONFIG_30PIN_CONN
-#include <linux/30pin_con.h>
 #endif
 
 #ifdef CONFIG_MOTOR_DRV_ISA1200
@@ -878,261 +870,6 @@ static void __init acc_chk_gpio_init(void)
 }
 #endif
 
-#ifdef CONFIG_30PIN_CONN
-static void smdk_accessory_gpio_init(void)
-{
-	gpio_request(GPIO_ACCESSORY_INT, "accessory");
-	s3c_gpio_cfgpin(GPIO_ACCESSORY_INT, S3C_GPIO_SFN(0xf));
-	s3c_gpio_setpull(GPIO_ACCESSORY_INT, S3C_GPIO_PULL_NONE);
-	gpio_direction_input(GPIO_ACCESSORY_INT);
-
-	gpio_request(GPIO_DOCK_INT, "dock");
-	s3c_gpio_cfgpin(GPIO_DOCK_INT, S3C_GPIO_SFN(0xf));
-	s3c_gpio_setpull(GPIO_DOCK_INT, S3C_GPIO_PULL_NONE);
-	gpio_direction_input(GPIO_DOCK_INT);
-}
-
-void smdk_accessory_power(u8 token, bool active)
-{
-	int gpio_acc_en = 0;
-	int try_cnt = 0;
-	int gpio_acc_5v = 0;
-	static bool enable;
-	static u8 acc_en_token;
-
-	/*
-		token info
-		0 : power off,
-		1 : Keyboard dock
-		2 : USB
-	*/
-	gpio_acc_en = GPIO_ACCESSORY_EN;
-	gpio_acc_5v = GPIO_ACCESSORY_OUT_5V;
-
-	gpio_request(gpio_acc_en, "GPIO_ACCESSORY_EN");
-	s3c_gpio_cfgpin(gpio_acc_en, S3C_GPIO_OUTPUT);
-	s3c_gpio_setpull(gpio_acc_en, S3C_GPIO_PULL_NONE);
-
-	if (active) {
-		if (acc_en_token) {
-			pr_info("Board : Keyboard dock is connected.\n");
-			gpio_direction_output(gpio_acc_en, 0);
-			msleep(100);
-		}
-
-		acc_en_token |= (1 << token);
-		enable = true;
-		gpio_direction_output(gpio_acc_en, 1);
-
-		if (0 != gpio_acc_5v) {
-			/* prevent the overcurrent */
-			while (!gpio_get_value(gpio_acc_5v)) {
-				gpio_direction_output(gpio_acc_en, 0);
-				msleep(20);
-				gpio_direction_output(gpio_acc_en, 1);
-				if (try_cnt > 10) {
-					pr_err("[acc] failed to enable the accessory_en");
-					break;
-				} else
-					try_cnt++;
-			}
-
-		} else
-			pr_info("[ACC] gpio_acc_5v is not set\n");
-
-	} else {
-		if (0 == token) {
-			gpio_direction_output(gpio_acc_en, 0);
-			enable = false;
-		} else {
-			acc_en_token &= ~(1 << token);
-			if (0 == acc_en_token) {
-				gpio_direction_output(gpio_acc_en, 0);
-				enable = false;
-			}
-		}
-	}
-	gpio_free(gpio_acc_en);
-	pr_info("Board : %s (%d,%d) %s\n", __func__,
-		token, active, enable ? "on" : "off");
-}
-
-static int smdk_get_acc_state(void)
-{
-	return gpio_get_value(GPIO_DOCK_INT);
-}
-
-static int smdk_get_dock_state(void)
-{
-	return gpio_get_value(GPIO_ACCESSORY_INT);
-}
-
-#ifdef CONFIG_SEC_KEYBOARD_DOCK
-static struct sec_keyboard_callbacks *keyboard_callbacks;
-static int check_sec_keyboard_dock(bool attached)
-{
-	if (keyboard_callbacks && keyboard_callbacks->check_keyboard_dock)
-		return keyboard_callbacks->
-			check_keyboard_dock(keyboard_callbacks, attached);
-	return 0;
-}
-
-/* call 30pin func. from sec_keyboard */
-static struct sec_30pin_callbacks *s30pin_callbacks;
-static int noti_sec_univ_kbd_dock(unsigned int code)
-{
-	if (s30pin_callbacks && s30pin_callbacks->noti_univ_kdb_dock)
-		return s30pin_callbacks->
-			noti_univ_kdb_dock(s30pin_callbacks, code);
-	return 0;
-}
-
-
-static void check_uart_path(bool en)
-{
-	int gpio_uart_sel;
-#ifdef CONFIG_MACH_P8LTE
-	int gpio_uart_sel2;
-
-	gpio_uart_sel = GPIO_UART_SEL1;
-	gpio_uart_sel2 = GPIO_UART_SEL2;
-	if (en)
-		gpio_direction_output(gpio_uart_sel2, 1);
-	else
-		gpio_direction_output(gpio_uart_sel2, 0);
-	printk(KERN_DEBUG "[Keyboard] uart_sel2 : %d\n",
-		gpio_get_value(gpio_uart_sel2));
-#else
-#if (CONFIG_SAMSUNG_ANALOG_UART_SWITCH == 2)
-	int gpio_uart_sel2;
-	gpio_uart_sel = GPIO_UART_SEL;
-	gpio_uart_sel2 = GPIO_UART_SEL2;
-#else
-	gpio_uart_sel = GPIO_UART_SEL;
-#endif
-#endif
-
-#if (CONFIG_SAMSUNG_ANALOG_UART_SWITCH == 2)
-	if (en) {
-		gpio_direction_output(gpio_uart_sel, 1);
-		gpio_direction_output(gpio_uart_sel2, 1);
-		printk(KERN_DEBUG "[Keyboard] uart_sel : 1, 1\n");
-	} else {
-		gpio_direction_output(gpio_uart_sel, 0);
-		gpio_direction_output(gpio_uart_sel2, 0);
-		printk(KERN_DEBUG "[Keyboard] uart_sel : 0, 0\n");
-	}
-#else
-	if (en)
-		gpio_direction_output(gpio_uart_sel, 1);
-	else
-		gpio_direction_output(gpio_uart_sel, 0);
-
-	printk(KERN_DEBUG "[Keyboard] uart_sel : %d\n",
-		gpio_get_value(gpio_uart_sel));
-#endif
-}
-
-static void sec_30pin_register_cb(struct sec_30pin_callbacks *cb)
-{
-	s30pin_callbacks = cb;
-}
-
-static void sec_keyboard_register_cb(struct sec_keyboard_callbacks *cb)
-{
-	keyboard_callbacks = cb;
-}
-
-static struct sec_keyboard_platform_data kbd_pdata = {
-	.accessory_irq_gpio = GPIO_ACCESSORY_INT,
-	.acc_power = smdk_accessory_power,
-	.check_uart_path = check_uart_path,
-	.register_cb = sec_keyboard_register_cb,
-	.noti_univ_kbd_dock = noti_sec_univ_kbd_dock,
-	.wakeup_key = NULL,
-};
-
-static struct platform_device sec_keyboard = {
-	.name	= "sec_keyboard",
-	.id	= -1,
-	.dev = {
-		.platform_data = &kbd_pdata,
-	}
-};
-#endif
-
-#ifdef CONFIG_USB_HOST_NOTIFY
-static void px_usb_otg_power(int active)
-{
-	smdk_accessory_power(2, active);
-}
-
-static void px_usb_otg_en(int active)
-{
-	pr_info("otg %s : %d\n", __func__, active);
-
-	usb_switch_lock();
-
-	if (active) {
-
-#ifdef CONFIG_USB_EHCI_S5P
-		pm_runtime_get_sync(&s5p_device_ehci.dev);
-#endif
-#ifdef CONFIG_USB_OHCI_S5P
-		pm_runtime_get_sync(&s5p_device_ohci.dev);
-#endif
-		usb_switch_set_path(USB_PATH_AP);
-		px_usb_otg_power(1);
-
-		msleep(500);
-
-		host_notifier_pdata.ndev.mode = NOTIFY_HOST_MODE;
-		if (host_notifier_pdata.usbhostd_start)
-			host_notifier_pdata.usbhostd_start();
-	} else {
-
-#ifdef CONFIG_USB_OHCI_S5P
-		pm_runtime_put_sync(&s5p_device_ohci.dev);
-#endif
-#ifdef CONFIG_USB_EHCI_S5P
-		pm_runtime_put_sync(&s5p_device_ehci.dev);
-#endif
-
-		usb_switch_clr_path(USB_PATH_AP);
-		host_notifier_pdata.ndev.mode = NOTIFY_NONE_MODE;
-		if (host_notifier_pdata.usbhostd_stop)
-			host_notifier_pdata.usbhostd_stop();
-		px_usb_otg_power(0);
-	}
-
-	usb_switch_unlock();
-}
-#endif
-
-struct acc_con_platform_data acc_con_pdata = {
-	.otg_en = px_usb_otg_en,
-	.acc_power = smdk_accessory_power,
-	.usb_ldo_en = NULL,
-	.get_acc_state = smdk_get_acc_state,
-	.get_dock_state = smdk_get_dock_state,
-#ifdef CONFIG_SEC_KEYBOARD_DOCK
-	.check_keyboard = check_sec_keyboard_dock,
-#endif
-	.register_cb = sec_30pin_register_cb,
-	.accessory_irq_gpio = GPIO_ACCESSORY_INT,
-	.dock_irq_gpio = GPIO_DOCK_INT,
-#if defined(CONFIG_SAMSUNG_MHL_9290)
-	.mhl_irq_gpio = GPIO_MHL_INT,
-	.hdmi_hpd_gpio = GPIO_HDMI_HPD,
-#endif
-};
-struct platform_device sec_device_connector = {
-	.name = "acc_con",
-	.id = -1,
-	.dev.platform_data = &acc_con_pdata,
-};
-#endif
-
 #ifdef CONFIG_VIDEO_FIMG2D
 static struct fimg2d_platdata fimg2d_data __initdata = {
 	.hw_ver = 0x41,
@@ -1500,12 +1237,6 @@ static struct platform_device *midas_devices[] __initdata = {
 #endif
 #ifdef CONFIG_EXYNOS4_SETUP_THERMAL
 	&s5p_device_tmu,
-#endif
-#ifdef CONFIG_30PIN_CONN
-	&sec_device_connector,
-#ifdef CONFIG_SEC_KEYBOARD_DOCK
-	&sec_keyboard,
-#endif
 #endif
     
 #ifdef CONFIG_CORESIGHT_ETM
@@ -2039,10 +1770,6 @@ static void __init midas_machine_init(void)
 #ifdef CONFIG_S3C_ADC
 	platform_device_register(&s3c_device_adc);
 #endif
-#ifdef CONFIG_SEC_THERMISTOR
-	platform_device_register(&sec_device_thermistor);
-#endif
-
 #if defined(CONFIG_S3C_DEV_I2C5)
 	if (need_i2c5())
 		platform_device_register(&s3c_device_i2c5);
@@ -2050,10 +1777,6 @@ static void __init midas_machine_init(void)
 
 #if defined(CONFIG_SENSORS_BH1721) || defined(CONFIG_SENSORS_AL3201)
 	platform_device_register(&s3c_device_i2c9);
-#endif
-
-#ifdef CONFIG_30PIN_CONN
-	smdk_accessory_gpio_init();
 #endif
 #ifdef CONFIG_USB_HOST_NOTIFY
 	acc_chk_gpio_init();
