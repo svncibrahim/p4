@@ -182,31 +182,6 @@ static struct s3c2410_uartcfg smdk4212_uartcfgs[] __initdata = {
 	},
 };
 
-#if defined(CONFIG_S3C64XX_DEV_SPI)
-#if defined(CONFIG_VIDEO_S5C73M3_SPI)
-
-static struct s3c64xx_spi_csinfo spi1_csi[] = {
-	[0] = {
-		.line = EXYNOS4_GPB(5),
-		.set_level = gpio_set_value,
-		.fb_delay = 0x2,
-	},
-};
-
-static struct spi_board_info spi1_board_info[] __initdata = {
-	{
-		.modalias = "s5c73m3_spi",
-		.platform_data = NULL,
-		.max_speed_hz = 50000000,
-		.bus_num = 1,
-		.chip_select = 0,
-		.mode = SPI_MODE_0,
-		.controller_data = &spi1_csi[0],
-	}
-};
-#endif
-#endif
-
 #ifdef CONFIG_LEDS_AAT1290A
 static int aat1290a_initGpio(void)
 {
@@ -1138,12 +1113,6 @@ static struct platform_device *midas_devices[] __initdata = {
 #ifndef CONFIG_SND_SOC_SAMSUNG_USE_DMA_WRAPPER
 	&samsung_asoc_idma,
 #endif
-#if defined(CONFIG_S3C64XX_DEV_SPI)
-#if defined(CONFIG_VIDEO_S5C73M3_SPI)
-	&exynos_device_spi1,
-#endif
-#endif
-
 #ifdef CONFIG_BT_BCM4334
 	&bcm4334_bluetooth_device,
 #endif
@@ -1495,15 +1464,6 @@ static void __init midas_machine_init(void)
 {
 	struct clk *ppmu_clk = NULL;
 
-#if defined(CONFIG_S3C64XX_DEV_SPI)
-#if defined(CONFIG_VIDEO_S5C73M3_SPI)
-	unsigned int gpio;
-	struct clk *sclk = NULL;
-	struct clk *prnt = NULL;
-	struct device *spi1_dev = &exynos_device_spi1.dev;
-#endif
-#endif
-
 	/*
 	  * prevent 4x12 ISP power off problem
 	  * ISP_SYS Register has to be 0 before ISP block power off.
@@ -1697,37 +1657,6 @@ static void __init midas_machine_init(void)
 
 #if defined(CONFIG_SEC_DEV_JACK)
 	p4note_jack_init();
-#endif
-
-#if defined(CONFIG_S3C64XX_DEV_SPI)
-#if defined(CONFIG_VIDEO_S5C73M3_SPI)
-	sclk = clk_get(spi1_dev, "dout_spi1");
-	if (IS_ERR(sclk))
-		dev_err(spi1_dev, "failed to get sclk for SPI-1\n");
-	prnt = clk_get(spi1_dev, "mout_mpll_user");
-	if (IS_ERR(prnt))
-		dev_err(spi1_dev, "failed to get prnt\n");
-	if (clk_set_parent(sclk, prnt))
-		printk(KERN_ERR "Unable to set parent %s of clock %s.\n",
-		       prnt->name, sclk->name);
-
-	clk_set_rate(sclk, 800 * 1000 * 1000);
-	clk_put(sclk);
-	clk_put(prnt);
-
-	if (!gpio_request(EXYNOS4_GPB(5), "SPI_CS1")) {
-		gpio_direction_output(EXYNOS4_GPB(5), 1);
-		s3c_gpio_cfgpin(EXYNOS4_GPB(5), S3C_GPIO_SFN(1));
-		s3c_gpio_setpull(EXYNOS4_GPB(5), S3C_GPIO_PULL_UP);
-		exynos_spi_set_info(1, EXYNOS_SPI_SRCCLK_SCLK,
-				    ARRAY_SIZE(spi1_csi));
-	}
-
-	for (gpio = EXYNOS4_GPB(4); gpio < EXYNOS4_GPB(8); gpio++)
-		s5p_gpio_set_drvstr(gpio, S5P_GPIO_DRVSTR_LV3);
-
-	spi_register_board_info(spi1_board_info, ARRAY_SIZE(spi1_board_info));
-#endif
 #endif
 
 #ifdef CONFIG_BUSFREQ_OPP
