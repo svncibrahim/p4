@@ -23,9 +23,6 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/max8649.h>
 #include <linux/regulator/fixed.h>
-#ifdef CONFIG_LEDS_AAT1290A
-#include <linux/leds-aat1290a.h>
-#endif
 
 #ifdef CONFIG_MFD_MAX77693
 #include <linux/mfd/max77693.h>
@@ -181,88 +178,6 @@ static struct s3c2410_uartcfg smdk4212_uartcfgs[] __initdata = {
 		.ufcon		= SMDK4212_UFCON_DEFAULT,
 	},
 };
-
-#ifdef CONFIG_LEDS_AAT1290A
-static int aat1290a_initGpio(void)
-{
-	int err;
-
-	err = gpio_request(GPIO_CAM_SW_EN, "CAM_SW_EN");
-	if (err) {
-		printk(KERN_ERR "failed to request CAM_SW_EN\n");
-		return -EPERM;
-	}
-	gpio_direction_output(GPIO_CAM_SW_EN, 1);
-	gpio_set_value(GPIO_CAM_SW_EN, 1);
-
-	return 0;
-}
-
-static void aat1290a_switch(int enable)
-{
-	gpio_set_value(GPIO_CAM_SW_EN, enable);
-}
-
-static int aat1290a_setGpio(void)
-{
-	int err;
-
-	err = gpio_request(GPIO_TORCH_EN, "TORCH_EN");
-	if (err) {
-		printk(KERN_ERR "failed to request TORCH_EN\n");
-		return -EPERM;
-	}
-	gpio_direction_output(GPIO_TORCH_EN, 1);
-	err = gpio_request(GPIO_TORCH_SET, "TORCH_SET");
-	if (err) {
-		printk(KERN_ERR "failed to request TORCH_SET\n");
-		gpio_free(GPIO_TORCH_EN);
-		return -EPERM;
-	}
-	gpio_direction_output(GPIO_TORCH_SET, 1);
-	gpio_set_value(GPIO_TORCH_EN, 0);
-	gpio_set_value(GPIO_TORCH_SET, 0);
-
-	return 0;
-}
-
-static int aat1290a_freeGpio(void)
-{
-	gpio_free(GPIO_TORCH_EN);
-	gpio_free(GPIO_TORCH_SET);
-
-	return 0;
-}
-
-static void aat1290a_torch_en(int onoff)
-{
-	gpio_set_value(GPIO_TORCH_EN, onoff);
-}
-
-static void aat1290a_torch_set(int onoff)
-{
-	gpio_set_value(GPIO_TORCH_SET, onoff);
-}
-
-static struct aat1290a_led_platform_data aat1290a_led_data = {
-	.brightness = TORCH_BRIGHTNESS_50,
-	.status	= STATUS_UNAVAILABLE,
-	.switch_sel = aat1290a_switch,
-	.initGpio = aat1290a_initGpio,
-	.setGpio = aat1290a_setGpio,
-	.freeGpio = aat1290a_freeGpio,
-	.torch_en = aat1290a_torch_en,
-	.torch_set = aat1290a_torch_set,
-};
-
-static struct platform_device s3c_device_aat1290a_led = {
-	.name	= "aat1290a-led",
-	.id	= -1,
-	.dev	= {
-		.platform_data	= &aat1290a_led_data,
-	},
-};
-#endif
 
 static DEFINE_MUTEX(notify_lock);
 
@@ -1407,13 +1322,6 @@ static void __init midas_machine_init(void)
 
 	p4_tsp_init(system_rev);
 	p4_key_init();
-#if defined(CONFIG_EPEN_WACOM_G5SP)
-	p4_wacom_init();
-#endif	/* CONFIG_EPEN_WACOM_G5SP */
-
-#ifdef CONFIG_LEDS_AAT1290A
-	platform_device_register(&s3c_device_aat1290a_led);
-#endif
 	midas_sound_init();
 
 #ifdef CONFIG_S3C_DEV_I2C5
