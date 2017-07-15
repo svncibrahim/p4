@@ -700,57 +700,6 @@ static struct platform_device exynos4_busfreq = {
 	.name = "exynos-busfreq",
 };
 
-#if defined(CONFIG_SENSORS_BH1721) || defined(CONFIG_SENSORS_AL3201)
-static struct i2c_gpio_platform_data i2c9_platdata = {
-	.sda_pin	= GPIO_PS_ALS_SDA_28V,
-	.scl_pin	= GPIO_PS_ALS_SCL_28V,
-	.udelay	= 2, /* 250KHz */
-	.sda_is_open_drain	= 0,
-	.scl_is_open_drain	= 0,
-	.scl_is_output_only = 0,
-};
-
-static struct platform_device s3c_device_i2c9 = {
-	.name	= "i2c-gpio",
-	.id	= 9,
-	.dev.platform_data	= &i2c9_platdata,
-};
-#endif
-
-#ifdef CONFIG_SENSORS_AK8975C
-static struct i2c_gpio_platform_data i2c10_platdata = {
-	.sda_pin	= GPIO_MSENSOR_SDA_18V,
-	.scl_pin	= GPIO_MSENSOR_SCL_18V,
-	.udelay	= 2, /* 250KHz */
-	.sda_is_open_drain	= 0,
-	.scl_is_open_drain	= 0,
-	.scl_is_output_only = 0,
-};
-
-static struct platform_device s3c_device_i2c10 = {
-	.name	= "i2c-gpio",
-	.id	= 10,
-	.dev.platform_data	= &i2c10_platdata,
-};
-#endif
-
-#ifdef CONFIG_SENSORS_LPS331
-static struct i2c_gpio_platform_data i2c11_platdata = {
-	.sda_pin	= GPIO_BSENSE_SDA_18V,
-	.scl_pin	= GPIO_BENSE_SCL_18V,
-	.udelay	= 2, /* 250KHz */
-	.sda_is_open_drain	= 0,
-	.scl_is_open_drain	= 0,
-	.scl_is_output_only = 0,
-};
-
-static struct platform_device s3c_device_i2c11 = {
-	.name			= "i2c-gpio",
-	.id	= 11,
-	.dev.platform_data	= &i2c11_platdata,
-};
-#endif
-
 #ifdef CONFIG_SEC_WATCHDOG_RESET
 static struct platform_device watchdog_reset_device = {
 	.name = "watchdog-reset",
@@ -816,12 +765,6 @@ static struct platform_device *midas_devices[] __initdata = {
 	&s3c_device_i2c8,
 #endif
 	/* &s3c_device_i2c9, */
-#ifdef CONFIG_SENSORS_AK8975C
-	&s3c_device_i2c10,
-#endif
-#ifdef CONFIG_SENSORS_LPS331
-	&s3c_device_i2c11,
-#endif
 	/* &s3c_device_i2c12, */
 #ifdef CONFIG_SMB347_CHARGER
 	&s3c_device_i2c13,
@@ -1480,10 +1423,6 @@ static void __init midas_machine_init(void)
 #if defined(CONFIG_S3C_DEV_I2C5)
 	if (need_i2c5())
 		platform_device_register(&s3c_device_i2c5);
-#endif
-
-#if defined(CONFIG_SENSORS_BH1721) || defined(CONFIG_SENSORS_AL3201)
-	platform_device_register(&s3c_device_i2c9);
 #endif
 
 #if defined(CONFIG_SEC_DEV_JACK)
