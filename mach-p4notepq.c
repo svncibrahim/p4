@@ -116,13 +116,6 @@
 #if defined(CONFIG_SEC_DEV_JACK)
 #include <mach/p4note-jack.h>
 #endif
-#ifdef CONFIG_USB_HOST_NOTIFY
-#include <linux/host_notify.h>
-#include <linux/pm_runtime.h>
-#include <linux/usb.h>
-#include <linux/usb/hcd.h>
-#include <mach/usb_switch.h>
-#endif
 
 #ifdef CONFIG_MOTOR_DRV_ISA1200
 #include <linux/isa1200_vibrator.h>
@@ -799,77 +792,6 @@ static struct i2c_board_info i2c_devs17_emul[] = {
 };
 #endif	/* CONFIG_MOTOR_DRV_ISA1200 */
 #endif
-
-#ifdef CONFIG_ANDROID_RAM_CONSOLE
-static struct resource ram_console_resource[] = {
-	{
-		.flags = IORESOURCE_MEM,
-	}
-};
-
-static struct platform_device ram_console_device = {
-	.name = "ram_console",
-	.id = -1,
-	.num_resources = ARRAY_SIZE(ram_console_resource),
-	.resource = ram_console_resource,
-};
-
-static int __init setup_ram_console_mem(char *str)
-{
-	unsigned size = memparse(str, &str);
-
-	if (size && (*str == '@')) {
-		unsigned long long base = 0;
-
-		base = simple_strtoul(++str, &str, 0);
-		if (reserve_bootmem(base, size, BOOTMEM_EXCLUSIVE)) {
-			pr_err("%s: failed reserving size %d "
-			       "at base 0x%llx\n", __func__, size, base);
-			return -1;
-		}
-
-		ram_console_resource[0].start = base;
-		ram_console_resource[0].end = base + size - 1;
-		pr_err("%s: %x at %llx\n", __func__, size, base);
-	}
-	return 0;
-}
-
-__setup("ram_console=", setup_ram_console_mem);
-#endif
-
-#ifdef CONFIG_USB_HOST_NOTIFY
-static void px_usb_otg_power(int active);
-#define HOST_NOTIFIER_BOOSTER	px_usb_otg_power
-#define HOST_NOTIFIER_GPIO		GPIO_ACCESSORY_OUT_5V
-#define RETRY_CNT_LIMIT 100
-
-struct host_notifier_platform_data host_notifier_pdata = {
-	.ndev.name	= "usb_otg",
-	.gpio		= HOST_NOTIFIER_GPIO,
-	.booster	= HOST_NOTIFIER_BOOSTER,
-	.irq_enable = 1,
-};
-
-struct platform_device host_notifier_device = {
-	.name = "host_notifier",
-	.dev.platform_data = &host_notifier_pdata,
-};
-
-static void __init acc_chk_gpio_init(void)
-{
-	gpio_request(GPIO_ACCESSORY_EN, "GPIO_USB_OTG_EN");
-	s3c_gpio_cfgpin(GPIO_ACCESSORY_EN, S3C_GPIO_OUTPUT);
-	s3c_gpio_setpull(GPIO_ACCESSORY_EN, S3C_GPIO_PULL_NONE);
-	gpio_direction_output(GPIO_ACCESSORY_EN, false);
-
-	gpio_request(GPIO_ACCESSORY_OUT_5V, "gpio_acc_5v");
-	s3c_gpio_cfgpin(GPIO_ACCESSORY_OUT_5V, S3C_GPIO_SFN(0xf));
-	s3c_gpio_setpull(GPIO_ACCESSORY_OUT_5V, S3C_GPIO_PULL_NONE);
-	gpio_direction_input(GPIO_ACCESSORY_OUT_5V);
-}
-#endif
-
 #ifdef CONFIG_VIDEO_FIMG2D
 static struct fimg2d_platdata fimg2d_data __initdata = {
 	.hw_ver = 0x41,
@@ -1019,9 +941,6 @@ struct platform_device coresight_etm_device = {
 static struct platform_device *midas_devices[] __initdata = {
 #ifdef CONFIG_SEC_WATCHDOG_RESET
 	&watchdog_reset_device,
-#endif
-#ifdef CONFIG_ANDROID_RAM_CONSOLE
-	&ram_console_device,
 #endif
 	/* Samsung Power Domain */
 	&exynos4_device_pd[PD_MFC],
@@ -1232,9 +1151,6 @@ static struct platform_device *midas_devices[] __initdata = {
 	&s5p_device_ace,
 #endif
 	&exynos4_busfreq,
-#ifdef CONFIG_USB_HOST_NOTIFY
-	&host_notifier_device,
-#endif
 #ifdef CONFIG_EXYNOS4_SETUP_THERMAL
 	&s5p_device_tmu,
 #endif
@@ -1777,9 +1693,6 @@ static void __init midas_machine_init(void)
 
 #if defined(CONFIG_SENSORS_BH1721) || defined(CONFIG_SENSORS_AL3201)
 	platform_device_register(&s3c_device_i2c9);
-#endif
-#ifdef CONFIG_USB_HOST_NOTIFY
-	acc_chk_gpio_init();
 #endif
 
 #if defined(CONFIG_SEC_DEV_JACK)
