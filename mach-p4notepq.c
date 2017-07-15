@@ -77,11 +77,6 @@
 #include <plat/adc.h>
 #include <media/exynos_fimc_is.h>
 #include <mach/exynos-ion.h>
-
-#if defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
-#include <mach/tdmb_pdata.h>
-#endif
-
 #include <mach/map.h>
 #include <mach/spi-clocks.h>
 
@@ -141,11 +136,6 @@ struct s3cfb_extdsp_lcd {
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <mach/usb_switch.h>
-#endif
-
-#if defined(CONFIG_PHONE_IPC_SPI)
-#include <linux/phone_svn/ipc_spi.h>
-#include <linux/irq.h>
 #endif
 
 #ifdef CONFIG_30PIN_CONN
@@ -240,188 +230,6 @@ static struct spi_board_info spi1_board_info[] __initdata = {
 	}
 };
 #endif
-
-#if defined(CONFIG_PHONE_IPC_SPI) \
-	|| defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
-static struct s3c64xx_spi_csinfo spi2_csi[] = {
-	[0] = {
-		.line = EXYNOS4_GPC1(2),
-		.set_level = gpio_set_value,
-	},
-};
-
-static struct spi_board_info spi2_board_info[] __initdata = {
-#if defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
-	{
-		.modalias = "tdmbspi",
-		.platform_data = NULL,
-		.max_speed_hz = 5000000,
-		.bus_num = 2,
-		.chip_select = 0,
-		.mode = SPI_MODE_0,
-		.controller_data = &spi2_csi[0],
-	},
-#else
-	{
-		.modalias = "ipc_spi",
-		.platform_data = NULL,
-		.bus_num = 2,
-		.chip_select = 0,
-		.max_speed_hz = 12*1000*1000,
-		.mode = SPI_MODE_1,
-		.controller_data = &spi2_csi[0],
-	}
-#endif
-};
-#endif
-#endif
-
-
-#if defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
-static void tdmb_set_config_poweron(void)
-{
-	s3c_gpio_cfgpin(GPIO_TDMB_EN, S3C_GPIO_OUTPUT);
-	s3c_gpio_setpull(GPIO_TDMB_EN, S3C_GPIO_PULL_NONE);
-	gpio_set_value(GPIO_TDMB_EN, GPIO_LEVEL_LOW);
-
-	s3c_gpio_cfgpin(GPIO_TDMB_INT, S3C_GPIO_SFN(GPIO_TDMB_INT_AF));
-	s3c_gpio_setpull(GPIO_TDMB_INT, S3C_GPIO_PULL_NONE);
-}
-static void tdmb_set_config_poweroff(void)
-{
-	s3c_gpio_cfgpin(GPIO_TDMB_EN, S3C_GPIO_OUTPUT);
-	s3c_gpio_setpull(GPIO_TDMB_EN, S3C_GPIO_PULL_NONE);
-	gpio_set_value(GPIO_TDMB_EN, GPIO_LEVEL_LOW);
-
-	s3c_gpio_cfgpin(GPIO_TDMB_INT, S3C_GPIO_OUTPUT);
-	s3c_gpio_setpull(GPIO_TDMB_INT, S3C_GPIO_PULL_NONE);
-	gpio_set_value(GPIO_TDMB_INT, GPIO_LEVEL_LOW);
-}
-
-static void tdmb_gpio_on(void)
-{
-	printk(KERN_DEBUG "tdmb_gpio_on\n");
-
-	tdmb_set_config_poweron();
-
-	gpio_set_value(GPIO_TDMB_EN, GPIO_LEVEL_LOW);
-	usleep_range(1000, 1000);
-	gpio_set_value(GPIO_TDMB_EN, GPIO_LEVEL_HIGH);
-}
-
-static void tdmb_gpio_off(void)
-{
-	printk(KERN_DEBUG "tdmb_gpio_off\n");
-
-	tdmb_set_config_poweroff();
-
-	gpio_set_value(GPIO_TDMB_EN, GPIO_LEVEL_LOW);
-}
-
-static struct tdmb_platform_data tdmb_pdata = {
-	.gpio_on = tdmb_gpio_on,
-	.gpio_off = tdmb_gpio_off,
-};
-
-static struct platform_device tdmb_device = {
-	.name			= "tdmb",
-	.id				= -1,
-	.dev			= {
-		.platform_data = &tdmb_pdata,
-	},
-};
-
-static int __init tdmb_dev_init(void)
-{
-	tdmb_set_config_poweroff();
-	s5p_register_gpio_interrupt(GPIO_TDMB_INT);
-	tdmb_pdata.irq = GPIO_TDMB_IRQ;
-	platform_device_register(&tdmb_device);
-
-	return 0;
-}
-#endif
-
-#if defined(CONFIG_PHONE_IPC_SPI)
-static void ipc_spi_cfg_gpio(void);
-
-static struct ipc_spi_platform_data ipc_spi_data = {
-	.gpio_ipc_mrdy = GPIO_IPC_MRDY,
-	.gpio_ipc_srdy = GPIO_IPC_SRDY,
-	.gpio_ipc_sub_mrdy = GPIO_IPC_SUB_MRDY,
-	.gpio_ipc_sub_srdy = GPIO_IPC_SUB_SRDY,
-
-	.cfg_gpio = ipc_spi_cfg_gpio,
-};
-
-static struct resource ipc_spi_res[] = {
-	[0] = {
-		.start = IRQ_IPC_SRDY,
-		.end = IRQ_IPC_SRDY,
-		.flags = IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device ipc_spi_device = {
-	.name = "onedram",
-	.id = -1,
-	.num_resources = ARRAY_SIZE(ipc_spi_res),
-	.resource = ipc_spi_res,
-	.dev = {
-		.platform_data = &ipc_spi_data,
-	},
-};
-
-static void ipc_spi_cfg_gpio(void)
-{
-	int err = 0;
-
-	unsigned gpio_ipc_mrdy = ipc_spi_data.gpio_ipc_mrdy;
-	unsigned gpio_ipc_srdy = ipc_spi_data.gpio_ipc_srdy;
-	unsigned gpio_ipc_sub_mrdy = ipc_spi_data.gpio_ipc_sub_mrdy;
-	unsigned gpio_ipc_sub_srdy = ipc_spi_data.gpio_ipc_sub_srdy;
-
-	err = gpio_request(gpio_ipc_mrdy, "IPC_MRDY");
-	if (err) {
-		printk(KERN_ERR "ipc_spi_cfg_gpio - fail to request gpio %s : %d\n",
-			"IPC_MRDY", err);
-	} else {
-		gpio_direction_output(gpio_ipc_mrdy, 0);
-		s3c_gpio_setpull(gpio_ipc_mrdy, S3C_GPIO_PULL_DOWN);
-	}
-
-	err = gpio_request(gpio_ipc_srdy, "IPC_SRDY");
-	if (err) {
-		printk(KERN_ERR "ipc_spi_cfg_gpio - fail to request gpio %s : %d\n",
-			"IPC_SRDY", err);
-	} else {
-		gpio_direction_input(gpio_ipc_srdy);
-		s3c_gpio_cfgpin(gpio_ipc_srdy, S3C_GPIO_SFN(0xF));
-		s3c_gpio_setpull(gpio_ipc_srdy, S3C_GPIO_PULL_NONE);
-	}
-
-	err = gpio_request(gpio_ipc_sub_mrdy, "IPC_SUB_MRDY");
-	if (err) {
-		printk(KERN_ERR "ipc_spi_cfg_gpio - fail to request gpio %s : %d\n",
-			"IPC_SUB_MRDY", err);
-	} else {
-		gpio_direction_output(gpio_ipc_sub_mrdy, 0);
-		s3c_gpio_setpull(gpio_ipc_sub_mrdy, S3C_GPIO_PULL_DOWN);
-	}
-
-	err = gpio_request(gpio_ipc_sub_srdy, "IPC_SUB_SRDY");
-	if (err) {
-		printk(KERN_ERR "ipc_spi_cfg_gpio - fail to request gpio %s : %d\n",
-			"IPC_SUB_SRDY", err);
-	} else {
-		gpio_direction_input(gpio_ipc_sub_srdy);
-		s3c_gpio_cfgpin(gpio_ipc_sub_srdy, S3C_GPIO_SFN(0xF));
-		s3c_gpio_setpull(gpio_ipc_sub_srdy, S3C_GPIO_PULL_NONE);
-	}
-
-	irq_set_irq_type(gpio_to_irq(GPIO_IPC_SRDY), IRQ_TYPE_EDGE_RISING);
-	irq_set_irq_type(gpio_to_irq(GPIO_IPC_SUB_SRDY), IRQ_TYPE_EDGE_RISING);
-}
 #endif
 
 #ifdef CONFIG_LEDS_AAT1290A
@@ -1710,12 +1518,6 @@ static struct platform_device *midas_devices[] __initdata = {
 #if defined(CONFIG_VIDEO_S5C73M3_SPI)
 	&exynos_device_spi1,
 #endif
-#if defined(CONFIG_PHONE_IPC_SPI)
-	&exynos_device_spi2,
-	&ipc_spi_device,
-#elif defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
-	&exynos_device_spi2,
-#endif
 #endif
 
 #ifdef CONFIG_BT_BCM4334
@@ -2127,10 +1929,6 @@ static void __init midas_machine_init(void)
 	struct clk *prnt = NULL;
 	struct device *spi1_dev = &exynos_device_spi1.dev;
 #endif
-#if defined(CONFIG_PHONE_IPC_SPI) \
-	|| defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
-	struct device *spi2_dev = &exynos_device_spi2.dev;
-#endif
 #endif
 
 	/*
@@ -2374,41 +2172,6 @@ static void __init midas_machine_init(void)
 		s5p_gpio_set_drvstr(gpio, S5P_GPIO_DRVSTR_LV3);
 
 	spi_register_board_info(spi1_board_info, ARRAY_SIZE(spi1_board_info));
-#endif
-
-#if defined(CONFIG_PHONE_IPC_SPI) \
-	|| defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
-	sclk = NULL;
-	prnt = NULL;
-
-	sclk = clk_get(spi2_dev, "dout_spi2");
-	if (IS_ERR(sclk))
-		dev_err(spi2_dev, "failed to get sclk for SPI-2\n");
-	prnt = clk_get(spi2_dev, "mout_mpll_user");
-	if (IS_ERR(prnt))
-		dev_err(spi2_dev, "failed to get prnt\n");
-	if (clk_set_parent(sclk, prnt))
-		printk(KERN_ERR "Unable to set parent %s of clock %s.\n",
-		       prnt->name, sclk->name);
-
-	clk_put(sclk);
-	clk_put(prnt);
-
-	if (!gpio_request(EXYNOS4_GPC1(2), "SPI_CS2")) {
-		gpio_direction_output(EXYNOS4_GPC1(2), 1);
-		s3c_gpio_cfgpin(EXYNOS4_GPC1(2), S3C_GPIO_SFN(1));
-		s3c_gpio_setpull(EXYNOS4_GPC1(2), S3C_GPIO_PULL_UP);
-		exynos_spi_set_info(2, EXYNOS_SPI_SRCCLK_SCLK,
-			ARRAY_SIZE(spi2_csi));
-	}
-	for (gpio = EXYNOS4_GPC1(1); gpio < EXYNOS4_GPC1(5); gpio++)
-		s5p_gpio_set_drvstr(gpio, S5P_GPIO_DRVSTR_LV3);
-
-	spi_register_board_info(spi2_board_info, ARRAY_SIZE(spi2_board_info));
-#endif
-
-#if defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)
-	tdmb_dev_init();
 #endif
 #endif
 
