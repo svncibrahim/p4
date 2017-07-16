@@ -759,11 +759,9 @@ static struct platform_device *midas_devices[] __initdata = {
 #ifdef CONFIG_BATTERY_MAX17042_FUELGAUGE_PX
 	&s3c_device_i2c14,
 #endif
-
-#ifdef CONFIG_SAMSUNG_MHL
-	&s3c_device_i2c15,
-	&s3c_device_i2c16,
-#endif
+    
+// 	&s3c_device_i2c15,
+// 	&s3c_device_i2c16,
 
 #ifdef CONFIG_MOTOR_DRV_ISA1200
 	&s3c_device_i2c17,
@@ -1284,15 +1282,7 @@ static void __init midas_machine_init(void)
 	i2c_register_board_info(14, i2c_devs14_emul,
 				ARRAY_SIZE(i2c_devs14_emul));
 #endif
-#ifdef CONFIG_SAMSUNG_MHL
-	printk(KERN_INFO "%s() register sii9234 driver\n", __func__);
-
-	i2c_register_board_info(15, i2c_devs15_emul,
-				ARRAY_SIZE(i2c_devs15_emul));
-	i2c_register_board_info(16, i2c_devs16_emul,
-				ARRAY_SIZE(i2c_devs16_emul));
-#endif
-
+    
 #ifdef CONFIG_MOTOR_DRV_ISA1200
 	isa1200_init();
 	i2c_register_board_info(17, i2c_devs17_emul,
