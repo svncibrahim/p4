@@ -99,15 +99,11 @@
 
 #include <plat/fimg2d.h>
 #include <plat/s5p-sysmmu.h>
-// // 
 #include <mach/sec_debug.h>
-
 #include <mach/p4-input.h>
-
 #include <mach/midas-power.h>
 #include <mach/midas-tsp.h>
 #include <mach/regs-clock.h>
-
 #include <mach/midas-lcd.h>
 #include <mach/midas-sound.h>
 #if defined(CONFIG_SEC_DEV_JACK)
@@ -1450,15 +1446,6 @@ static void __init exynos_init_reserve(void)
 }
 
 MACHINE_START(SMDK4412, "SMDK4x12")
-	.boot_params	= S5P_PA_SDRAM + 0x100,
-	.init_irq	= exynos4_init_irq,
-	.map_io		= midas_map_io,
-	.init_machine	= midas_machine_init,
-	.timer		= &exynos4_timer,
-	.init_early	= &exynos_init_reserve,
-MACHINE_END
-
-MACHINE_START(SMDK4212, "SMDK4x12")
 	.boot_params	= S5P_PA_SDRAM + 0x100,
 	.init_irq	= exynos4_init_irq,
 	.map_io		= midas_map_io,
