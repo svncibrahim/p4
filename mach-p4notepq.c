@@ -30,13 +30,6 @@
 #include <linux/leds-max77693.h>
 #endif
 
-#ifdef CONFIG_BATTERY_MAX17042_FUELGAUGE_PX
-#include <linux/power/max17042_fuelgauge_px.h>
-#endif
-#ifdef CONFIG_SMB347_CHARGER
-#include <linux/power/smb347_charger.h>
-#endif
-
 #ifdef CONFIG_BT_BCM4334
 #include <mach/board-bluetooth-bcm.h>
 #endif
@@ -342,24 +335,6 @@ static struct i2c_board_info i2c_devs0[] __initdata = {
 static struct i2c_board_info i2c_devs1[] __initdata = {
 };
 
-#ifdef CONFIG_S3C_DEV_I2C5
-static struct i2c_board_info i2c_devs5[] __initdata = {
-#ifdef CONFIG_REGULATOR_MAX8997
-	{
-		I2C_BOARD_INFO("max8997", (0xcc >> 1)),
-		.platform_data = &exynos4_max8997_info,
-	},
-#endif
-#if defined(CONFIG_REGULATOR_MAX77686)
-	/* max77686 on i2c5 other than M1 board */
-	{
-		I2C_BOARD_INFO("max77686", (0x12 >> 1)),
-		.platform_data	= &exynos4_max77686_info,
-	},
-#endif
-};
-#endif
-
 static struct i2c_board_info i2c_devs7[] __initdata = {
 #if defined(CONFIG_REGULATOR_MAX77686) /* max77686 on i2c7 with M1 board */
 	{
@@ -397,91 +372,6 @@ static struct i2c_board_info i2c_devs10_emul[] __initdata = {
 static struct i2c_board_info i2c_devs11_emul[] __initdata = {
 };
 
-#ifdef CONFIG_SMB347_CHARGER
-struct smb_charger_callbacks *smb_callbacks;
-
-static void smb_charger_register_callbacks(struct smb_charger_callbacks *ptr)
-{
-	smb_callbacks = ptr;
-}
-
-static void smb_charger_unregister_callbacks(void)
-{
-	smb_callbacks = NULL;
-}
-
-static struct smb_charger_data smb_charger_pdata = {
-	.register_callbacks = smb_charger_register_callbacks,
-	.unregister_callbacks = smb_charger_unregister_callbacks,
-	.enable = GPIO_TA_EN,
-	.stat = GPIO_TA_nCHG,
-	.ta_nconnected = GPIO_TA_nCONNECTED,
-};
-
-/* I2C13 */
-static struct i2c_board_info i2c_devs13_emul[] __initdata = {
-	{
-		I2C_BOARD_INFO("smb347-charger", 0x0C >> 1),
-		.platform_data = &smb_charger_pdata,
-	},
-};
-
-static void __init smb_gpio_init(void)
-{
-	s3c_gpio_cfgpin(GPIO_TA_nCHG, S3C_GPIO_SFN(0xf));
-	/* external pull up */
-	s3c_gpio_setpull(GPIO_TA_nCHG, S3C_GPIO_PULL_NONE);
-	i2c_devs13_emul[0].irq = gpio_to_irq(GPIO_TA_nCHG);
-}
-
-static struct i2c_gpio_platform_data gpio_i2c_data13 = {
-	.sda_pin = GPIO_CHG_SDA,
-	.scl_pin = GPIO_CHG_SCL,
-};
-
-struct platform_device s3c_device_i2c13 = {
-	.name = "i2c-gpio",
-	.id = 13,
-	.dev.platform_data = &gpio_i2c_data13,
-};
-
-static void sec_bat_set_charging_state(int enable, int cable_status)
-{
-	if (smb_callbacks && smb_callbacks->set_charging_state)
-		smb_callbacks->set_charging_state(enable, cable_status);
-}
-
-static int sec_bat_get_charging_state(void)
-{
-	if (smb_callbacks && smb_callbacks->get_charging_state)
-		return smb_callbacks->get_charging_state();
-	else
-		return 0;
-}
-
-static void sec_bat_set_charging_current(int set_current)
-{
-	if (smb_callbacks && smb_callbacks->set_charging_current)
-		smb_callbacks->set_charging_current(set_current);
-}
-
-static int sec_bat_get_charging_current(void)
-{
-	if (smb_callbacks && smb_callbacks->get_charging_current)
-		return smb_callbacks->get_charging_current();
-	else
-		return 0;
-}
-
-static int sec_bat_get_charger_is_full(void)
-{
-	if (smb_callbacks && smb_callbacks->get_charger_is_full)
-		return smb_callbacks->get_charger_is_full();
-	else
-		return 0;
-}
-#endif
-
 static int check_bootmode(void)
 {
 	int inform2;
@@ -501,41 +391,6 @@ static int check_jig_on(void)
 	else
 		return 0;
 }
-
-/* I2C14 */
-#ifdef CONFIG_BATTERY_MAX17042_FUELGAUGE_PX
-static struct i2c_gpio_platform_data gpio_i2c_data14 = {
-	.sda_pin = GPIO_FUEL_SDA,
-	.scl_pin = GPIO_FUEL_SCL,
-};
-
-struct platform_device s3c_device_i2c14 = {
-	.name = "i2c-gpio",
-	.id = 14,
-	.dev.platform_data = &gpio_i2c_data14,
-};
-
-static struct max17042_platform_data max17042_pdata = {
-	.sdi_capacity = 0x3730,
-	.sdi_vfcapacity = 0x4996,
-	.sdi_low_bat_comp_start_vol = 3600,
-	.atl_capacity = 0x3022,
-	.atl_vfcapacity = 0x4024,
-	.atl_low_bat_comp_start_vol = 3450,
-	.byd_capacity = 0x36B0,
-	.byd_vfcapacity = 0x48EA,
-	.byd_low_bat_comp_start_vol = 3600,
-	.fuel_alert_line = GPIO_FUEL_ALERT,
-	.check_jig_status = check_jig_on
-};
-
-static struct i2c_board_info i2c_devs14_emul[] __initdata = {
-	{
-		I2C_BOARD_INFO("fuelgauge", 0x36),
-		.platform_data = &max17042_pdata,
-	},
-};
-#endif
 
 /* I2C15 */
 static struct i2c_gpio_platform_data gpio_i2c_data15 = {
@@ -593,26 +448,7 @@ static struct platform_device s3c_device_i2c18 = {
 #endif
 
 /* I2C21 */
-#ifdef CONFIG_LEDS_AN30259A
-static struct i2c_gpio_platform_data gpio_i2c_data21 = {
-	.scl_pin = GPIO_S_LED_I2C_SCL,
-	.sda_pin = GPIO_S_LED_I2C_SDA,
-};
-
-struct platform_device s3c_device_i2c21 = {
-	.name = "i2c-gpio",
-	.id = 21,
-	.dev.platform_data = &gpio_i2c_data21,
-};
-#endif
-
-/* I2C21 */
 static struct i2c_board_info i2c_devs21_emul[] __initdata = {
-#ifdef CONFIG_LEDS_AN30259A
-	{
-		I2C_BOARD_INFO("an30259a", 0x30),
-	},
-#endif
 };
 
 
@@ -747,15 +583,10 @@ static struct platform_device *midas_devices[] __initdata = {
 #ifdef CONFIG_S3C_DEV_I2C8
 	&s3c_device_i2c8,
 #endif
-	/* &s3c_device_i2c9, */
-	/* &s3c_device_i2c12, */
-#ifdef CONFIG_SMB347_CHARGER
-	&s3c_device_i2c13,
-#endif
-#ifdef CONFIG_BATTERY_MAX17042_FUELGAUGE_PX
-	&s3c_device_i2c14,
-#endif
-    
+// &s3c_device_i2c9,
+// &s3c_device_i2c12,
+// 	&s3c_device_i2c13,
+// 	&s3c_device_i2c14,
 // 	&s3c_device_i2c15,
 // 	&s3c_device_i2c16,
 
@@ -763,9 +594,8 @@ static struct platform_device *midas_devices[] __initdata = {
 	&s3c_device_i2c17,
 #endif
 
-#ifdef CONFIG_LEDS_AN30259A
-	&s3c_device_i2c21,
-#endif
+// 	&s3c_device_i2c21,
+
 
 #if defined CONFIG_USB_EHCI_S5P && !defined CONFIG_LINK_DEVICE_HSIC
 	&s5p_device_ehci,
@@ -1217,11 +1047,6 @@ static void __init exynos_sysmmu_init(void)
 #endif
 }
 
-static inline int need_i2c5(void)
-{
-	return 1; /* orig: system_rev != 3; */
-}
-
 static void __init midas_machine_init(void)
 {
 	struct clk *ppmu_clk = NULL;
@@ -1248,14 +1073,6 @@ static void __init midas_machine_init(void)
 	p4_key_init();
 	midas_sound_init();
 
-#ifdef CONFIG_S3C_DEV_I2C5
-	if (need_i2c5()) {
-		s3c_i2c5_set_platdata(NULL);
-		i2c_register_board_info(5, i2c_devs5,
-			ARRAY_SIZE(i2c_devs5));
-	}
-#endif
-
 	s3c_i2c7_set_platdata(NULL);
 	i2c_register_board_info(7, i2c_devs7, ARRAY_SIZE(i2c_devs7));
 
@@ -1266,34 +1083,11 @@ static void __init midas_machine_init(void)
 
 	i2c_register_board_info(11, i2c_devs11_emul,
 				ARRAY_SIZE(i2c_devs11_emul));
-
-#ifdef CONFIG_SMB347_CHARGER
-	/* smb347 charger */
-	i2c_register_board_info(13, i2c_devs13_emul,
-				ARRAY_SIZE(i2c_devs13_emul));
-#endif
-
-#ifdef CONFIG_BATTERY_MAX17042_FUELGAUGE_PX
-	/* max17042 fuelgauge */
-	i2c_register_board_info(14, i2c_devs14_emul,
-				ARRAY_SIZE(i2c_devs14_emul));
-#endif
     
 #ifdef CONFIG_MOTOR_DRV_ISA1200
 	isa1200_init();
 	i2c_register_board_info(17, i2c_devs17_emul,
 				ARRAY_SIZE(i2c_devs17_emul));
-#endif
-
-#ifdef CONFIG_LEDS_AN30259A
-	i2c_register_board_info(21, i2c_devs21_emul,
-				ARRAY_SIZE(i2c_devs21_emul));
-#endif
-
-#if defined(GPIO_OLED_DET)
-	gpio_request(GPIO_OLED_DET, "OLED_DET");
-	s5p_register_gpio_interrupt(GPIO_OLED_DET);
-	gpio_free(GPIO_OLED_DET);
 #endif
 #ifdef CONFIG_FB_S5P
 #ifdef CONFIG_FB_S5P_LMS501KF03
@@ -1392,10 +1186,6 @@ static void __init midas_machine_init(void)
 
 #ifdef CONFIG_S3C_ADC
 	platform_device_register(&s3c_device_adc);
-#endif
-#if defined(CONFIG_S3C_DEV_I2C5)
-	if (need_i2c5())
-		platform_device_register(&s3c_device_i2c5);
 #endif
 
 #if defined(CONFIG_SEC_DEV_JACK)
