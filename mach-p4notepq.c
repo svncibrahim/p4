@@ -584,6 +584,8 @@ static struct platform_device *midas_devices[] __initdata = {
 	&s3c_device_i2c8,
 #endif
 // &s3c_device_i2c9,
+// s3c_device_i2c10,
+// &s3c_device_i2c11,
 // &s3c_device_i2c12,
 // 	&s3c_device_i2c13,
 // 	&s3c_device_i2c14,
@@ -595,7 +597,7 @@ static struct platform_device *midas_devices[] __initdata = {
 #endif
 
 // 	&s3c_device_i2c21,
-
+// 	&s3c_device_i2c22,
 
 #if defined CONFIG_USB_EHCI_S5P && !defined CONFIG_LINK_DEVICE_HSIC
 	&s5p_device_ehci,
@@ -1083,7 +1085,6 @@ static void __init midas_machine_init(void)
 
 	i2c_register_board_info(11, i2c_devs11_emul,
 				ARRAY_SIZE(i2c_devs11_emul));
-    
 #ifdef CONFIG_MOTOR_DRV_ISA1200
 	isa1200_init();
 	i2c_register_board_info(17, i2c_devs17_emul,
